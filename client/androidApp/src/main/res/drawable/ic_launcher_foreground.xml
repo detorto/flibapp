@@ -1,0 +1,65 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Open book body (left page) -->
+    <path
+        android:pathData="M54,32 L26,38 L26,78 L54,72 Z"
+        android:fillColor="#FFFFFF"/>
+
+    <!-- Open book body (right page) -->
+    <path
+        android:pathData="M54,32 L82,38 L82,78 L54,72 Z"
+        android:fillColor="#E0E0E0"/>
+
+    <!-- Book spine highlight -->
+    <path
+        android:pathData="M53,32 L55,32 L55,72 L53,72 Z"
+        android:fillColor="#B0BEC5"/>
+
+    <!-- Left page lines -->
+    <path
+        android:pathData="M32,45 L50,41"
+        android:strokeColor="#90A4AE"
+        android:strokeWidth="1.2"/>
+    <path
+        android:pathData="M32,51 L50,47"
+        android:strokeColor="#90A4AE"
+        android:strokeWidth="1.2"/>
+    <path
+        android:pathData="M32,57 L50,53"
+        android:strokeColor="#90A4AE"
+        android:strokeWidth="1.2"/>
+    <path
+        android:pathData="M32,63 L50,59"
+        android:strokeColor="#90A4AE"
+        android:strokeWidth="1.2"/>
+
+    <!-- Right page lines -->
+    <path
+        android:pathData="M58,41 L76,45"
+        android:strokeColor="#90A4AE"
+        android:strokeWidth="1.2"/>
+    <path
+        android:pathData="M58,47 L76,51"
+        android:strokeColor="#90A4AE"
+        android:strokeWidth="1.2"/>
+    <path
+        android:pathData="M58,53 L76,57"
+        android:strokeColor="#90A4AE"
+        android:strokeWidth="1.2"/>
+    <path
+        android:pathData="M58,59 L76,63"
+        android:strokeColor="#90A4AE"
+        android:strokeWidth="1.2"/>
+
+    <!-- Small "F" letter on the book -->
+    <path
+        android:pathData="M64,44 L73,46 M64,44 L64,56 M64,50 L71,51.5"
+        android:strokeColor="#1565C0"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"/>
+
+</vector>

@@ -1,0 +1,21 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - FLIBUSTA_URL=https://flibusta.is
+      - TOR_PROXY=
+      - CACHE_TTL_MINUTES=60
+      - RATE_LIMIT=60
+      - RATE_LIMIT_WINDOW_SECONDS=60
+    restart: unless-stopped
+
+  # Optional: uncomment to route backend traffic through Tor
+  # tor:
+  #   image: dperson/torproxy
+  #   ports:
+  #     - "9050:9050"
+  #   restart: unless-stopped
+  # Then set TOR_PROXY=tor:9050 in backend environment

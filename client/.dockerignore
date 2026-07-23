@@ -1,0 +1,8 @@
+.gradle
+**/build
+androidApp/build
+desktopApp/build
+composeApp/build
+local.properties
+flibapp-release.keystore
+keystore.properties

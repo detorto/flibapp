@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 108 108">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1565C0"/>
+      <stop offset="100%" style="stop-color:#0D47A1"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="54" cy="54" r="48" fill="url(#bg)"/>
+
+  <!-- Open book body (left page) -->
+  <path d="M54,28 L22,35 L22,80 L54,73 Z" fill="#FFFFFF"/>
+
+  <!-- Open book body (right page) -->
+  <path d="M54,28 L86,35 L86,80 L54,73 Z" fill="#E8EAF6"/>
+
+  <!-- Book spine -->
+  <path d="M52.5,28 L55.5,28 L55.5,73 L52.5,73 Z" fill="#B0BEC5"/>
+
+  <!-- Left page lines -->
+  <line x1="28" y1="43" x2="49" y2="38" stroke="#90A4AE" stroke-width="1.5"/>
+  <line x1="28" y1="50" x2="49" y2="45" stroke="#90A4AE" stroke-width="1.5"/>
+  <line x1="28" y1="57" x2="49" y2="52" stroke="#90A4AE" stroke-width="1.5"/>
+  <line x1="28" y1="64" x2="49" y2="59" stroke="#90A4AE" stroke-width="1.5"/>
+
+  <!-- "F" letter on right page -->
+  <path d="M62,42 L78,45.5 M62,42 L62,62 M62,52 L75,54.5" stroke="#1565C0" stroke-width="3" stroke-linecap="round" fill="none"/>
+</svg>

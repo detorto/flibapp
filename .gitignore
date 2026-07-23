@@ -1,0 +1,37 @@
+# Website is deployed separately.
+/site/
+
+# Generated release artifacts and local analysis.
+/dist/
+/graphify-out/
+
+# Gradle and IDE output.
+/.gradle/
+/client/.gradle/
+**/build/
+/.idea/
+*.iml
+.DS_Store
+local.properties
+
+# Signing material and environment secrets.
+/client/keystore.properties
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+.env
+.env.*
+
+# Locally compiled backend binaries. Backend sources remain versioned.
+/backend/flibusta-backend
+/backend/flibusta-backend-linux
+/backend/flibusta-server
+
+# Local and temporary files.
+*.log
+*.tmp
+*.swp
+*~

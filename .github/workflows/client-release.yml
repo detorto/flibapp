@@ -1,0 +1,186 @@
+name: Client CI and Releases
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: client-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  android:
+    name: Android
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
+      - name: Configure optional Android signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          if [[ -n "$ANDROID_KEYSTORE_BASE64" ]]; then
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > ci-release.keystore
+            {
+              echo "storeFile=../ci-release.keystore"
+              echo "storePassword=$ANDROID_KEYSTORE_PASSWORD"
+              echo "keyAlias=$ANDROID_KEY_ALIAS"
+              echo "keyPassword=$ANDROID_KEY_PASSWORD"
+            } > keystore.properties
+          fi
+
+      - name: Build APKs
+        shell: bash
+        run: |
+          chmod +x gradlew
+          ./gradlew :androidApp:assembleDebug :androidApp:assembleRelease --no-daemon
+
+      - name: Collect APKs
+        shell: bash
+        run: |
+          mkdir -p ../release-assets/android
+          find androidApp/build/outputs/apk -type f -name '*.apk' \
+            -exec cp {} ../release-assets/android/ \;
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: flibapp-android
+          path: release-assets/android/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+  macos:
+    name: macOS
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
+      - name: Build DMG
+        shell: bash
+        run: |
+          chmod +x gradlew
+          ./gradlew :desktopApp:packageDmg --no-daemon
+
+      - name: Collect DMG
+        shell: bash
+        run: |
+          mkdir -p ../release-assets/macos
+          find desktopApp/build/compose/binaries/main/dmg -type f -name '*.dmg' \
+            -exec cp {} ../release-assets/macos/ \;
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: flibapp-macos
+          path: release-assets/macos/*.dmg
+          if-no-files-found: error
+          retention-days: 30
+
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
+      - name: Build EXE and MSI
+        shell: pwsh
+        run: .\gradlew.bat :desktopApp:packageExe :desktopApp:packageMsi --no-daemon
+
+      - name: Collect Windows installers
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path ..\release-assets\windows
+          Get-ChildItem desktopApp\build\compose\binaries\main -Recurse -File |
+            Where-Object { $_.Extension -in '.exe', '.msi' } |
+            Copy-Item -Destination ..\release-assets\windows
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: flibapp-windows
+          path: |
+            release-assets/windows/*.exe
+            release-assets/windows/*.msi
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs:
+      - android
+      - macos
+      - windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create or update release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          mapfile -d '' files < <(find release-assets -type f -print0)
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "No release assets found" >&2
+            exit 1
+          fi
+
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "${files[@]}" \
+              --title "FlibApp $GITHUB_REF_NAME" \
+              --generate-notes
+          fi

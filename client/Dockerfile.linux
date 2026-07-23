@@ -1,0 +1,27 @@
+FROM eclipse-temurin:17-jdk-jammy
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    binutils fakeroot dpkg-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV ANDROID_SDK_ROOT=/opt/android-sdk
+RUN mkdir -p $ANDROID_SDK_ROOT/cmdline-tools && \
+    apt-get update && apt-get install -y --no-install-recommends wget unzip && \
+    wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/cmdtools.zip && \
+    unzip -q /tmp/cmdtools.zip -d $ANDROID_SDK_ROOT/cmdline-tools && \
+    mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools/latest && \
+    yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 && \
+    $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0" > /dev/null 2>&1 && \
+    rm /tmp/cmdtools.zip && \
+    apt-get remove -y wget unzip && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+COPY . .
+RUN chmod +x gradlew
+
+RUN echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+
+RUN ./gradlew :desktopApp:createDistributable --no-daemon && \
+    ./gradlew :desktopApp:packageDeb --no-daemon || true
+
+CMD ["echo", "done"]
