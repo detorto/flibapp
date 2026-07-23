@@ -1,7 +1,10 @@
 # Flibusta Reader
 
-Cross-platform book search & download app for **Android**, **iOS**, and **macOS**.
+Cross-platform book search & download app for **Android**, **iOS**, **macOS**, and **Windows**.
 Proxies requests to flibusta.is through an anonymous backend.
+
+The client keeps the 10 most recent search queries locally. Repeating a query
+moves it to the top; individual entries or the entire history can be removed.
 
 ## Architecture
 

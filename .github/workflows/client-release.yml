@@ -95,7 +95,7 @@ jobs:
         shell: bash
         run: |
           chmod +x gradlew
-          ./gradlew :desktopApp:packageDmg --no-daemon
+          ./gradlew :composeApp:desktopTest :desktopApp:packageDmg --no-daemon
 
       - name: Collect DMG
         shell: bash
@@ -177,7 +177,7 @@ jobs:
 
           Compress-Archive `
             -Path "$binaries\app\FlibApp" `
-            -DestinationPath "$output\FlibApp-1.0.1-windows-x64-portable.zip"
+            -DestinationPath "$output\FlibApp-1.0.2-windows-x64-portable.zip"
 
       - uses: actions/upload-artifact@v7
         with:

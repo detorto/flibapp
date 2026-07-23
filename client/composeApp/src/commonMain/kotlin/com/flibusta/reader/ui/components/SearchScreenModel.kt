@@ -53,6 +53,10 @@ class SearchScreenModel(
         _state.value = _state.value.copy(history = emptyList())
     }
 
+    fun removeFromHistory(query: String) {
+        _state.value = _state.value.copy(history = historyRepository.remove(query))
+    }
+
     fun searchFromHistory(query: String) {
         _state.value = _state.value.copy(query = query)
         search()

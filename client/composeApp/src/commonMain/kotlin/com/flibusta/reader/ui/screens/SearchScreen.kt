@@ -82,6 +82,7 @@ class SearchScreen : Screen {
                     SearchHistory(
                         history = state.history,
                         onSearch = model::searchFromHistory,
+                        onRemove = model::removeFromHistory,
                         onClear = model::clearHistory
                     )
                 }
@@ -249,6 +250,7 @@ class SearchScreen : Screen {
 private fun SearchHistory(
     history: List<String>,
     onSearch: (String) -> Unit,
+    onRemove: (String) -> Unit,
     onClear: () -> Unit
 ) {
     if (history.isEmpty()) {
@@ -289,12 +291,25 @@ private fun SearchHistory(
                 shape = MaterialTheme.shapes.medium,
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
             ) {
-                Text(
-                    text = query,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = query,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 16.dp, top = 12.dp, bottom = 12.dp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    IconButton(onClick = { onRemove(query) }) {
+                        Icon(
+                            Icons.Default.Clear,
+                            contentDescription = "Удалить запрос из истории"
+                        )
+                    }
+                }
             }
         }
     }

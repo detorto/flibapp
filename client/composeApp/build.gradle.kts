@@ -53,6 +53,11 @@ kotlin {
             implementation(libs.voyager.tabNavigator)
         }
 
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(libs.multiplatform.settings.test)
+        }
+
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)
             implementation(libs.kotlinx.coroutines.android)

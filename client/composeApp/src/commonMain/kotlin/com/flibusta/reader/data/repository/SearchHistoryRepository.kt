@@ -16,9 +16,27 @@ class SearchHistoryRepository(private val settings: Settings = Settings()) {
             .toList()
 
     fun add(query: String): List<String> {
-        val updated = (listOf(query) + getHistory().filterNot { it.equals(query, ignoreCase = true) })
+        val normalizedQuery = query
+            .replace(Regex("\\s+"), " ")
+            .trim()
+        if (normalizedQuery.isEmpty()) return getHistory()
+
+        val updated = (
+            listOf(normalizedQuery) +
+                getHistory().filterNot { it.equals(normalizedQuery, ignoreCase = true) }
+            )
             .take(MAX_SEARCH_HISTORY_SIZE)
         settings.putString(SEARCH_HISTORY_KEY, updated.joinToString("\n"))
+        return updated
+    }
+
+    fun remove(query: String): List<String> {
+        val updated = getHistory().filterNot { it.equals(query, ignoreCase = true) }
+        if (updated.isEmpty()) {
+            clear()
+        } else {
+            settings.putString(SEARCH_HISTORY_KEY, updated.joinToString("\n"))
+        }
         return updated
     }
 
