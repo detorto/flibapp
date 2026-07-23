@@ -75,11 +75,15 @@ GitHub Actions builds the client on every push and pull request:
 
 - Android APKs on Linux
 - macOS DMG on macOS
-- Windows EXE and MSI on Windows
+- Windows x64 EXE, MSI and portable ZIP on Windows
 
 Build outputs are stored as workflow artifacts for 30 days. Pushing a tag such
 as `v1.0.0` also creates a GitHub Release and attaches all three platform
 packages.
+
+The Windows job validates that the launcher and bundled JVM are both x64, then
+starts the packaged application and checks that it stays running. This prevents
+publishing an incomplete portable launcher or a mixed-architecture runtime.
 
 Android release signing is optional. Without repository secrets, CI produces
 an unsigned release APK plus a debug APK. To enable signing, add these GitHub

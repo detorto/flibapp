@@ -129,17 +129,55 @@ jobs:
         with:
           cache-provider: basic
 
-      - name: Build EXE and MSI
+      - name: Build portable app, EXE and MSI
         shell: pwsh
-        run: .\gradlew.bat :desktopApp:packageExe :desktopApp:packageMsi --no-daemon
+        run: |
+          .\gradlew.bat `
+            :desktopApp:createDistributable `
+            :desktopApp:packageExe `
+            :desktopApp:packageMsi `
+            --no-daemon
+
+      - name: Smoke-test Windows app
+        shell: pwsh
+        run: |
+          $appDir = "desktopApp\build\compose\binaries\main\app\FlibApp"
+          $launcher = Join-Path $appDir "FlibApp.exe"
+          $jvm = Join-Path $appDir "runtime\bin\server\jvm.dll"
+
+          function Get-PeMachine([string] $path) {
+            $bytes = [System.IO.File]::ReadAllBytes($path)
+            $peOffset = [BitConverter]::ToInt32($bytes, 0x3c)
+            return [BitConverter]::ToUInt16($bytes, $peOffset + 4)
+          }
+
+          if ((Get-PeMachine $launcher) -ne 0x8664) {
+            throw "FlibApp.exe is not an x64 executable"
+          }
+          if ((Get-PeMachine $jvm) -ne 0x8664) {
+            throw "Bundled JVM is not x64"
+          }
+
+          $process = Start-Process -FilePath $launcher -PassThru
+          Start-Sleep -Seconds 12
+          if ($process.HasExited) {
+            throw "FlibApp exited during startup with code $($process.ExitCode)"
+          }
+          Stop-Process -Id $process.Id -Force
 
       - name: Collect Windows installers
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path ..\release-assets\windows
-          Get-ChildItem desktopApp\build\compose\binaries\main -Recurse -File |
-            Where-Object { $_.Extension -in '.exe', '.msi' } |
-            Copy-Item -Destination ..\release-assets\windows
+          $output = "..\release-assets\windows"
+          $binaries = "desktopApp\build\compose\binaries\main"
+          New-Item -ItemType Directory -Force -Path $output
+
+          Copy-Item "$binaries\exe\*.exe" -Destination $output
+          Copy-Item "$binaries\msi\*.msi" -Destination $output
+
+          Compress-Archive `
+            -Path "$binaries\app\FlibApp" `
+            -DestinationPath "$output\FlibApp-1.0.1-windows-x64-portable.zip"
 
       - uses: actions/upload-artifact@v7
         with:
@@ -147,6 +185,7 @@ jobs:
           path: |
             release-assets/windows/*.exe
             release-assets/windows/*.msi
+            release-assets/windows/*.zip
           if-no-files-found: error
           retention-days: 30
 

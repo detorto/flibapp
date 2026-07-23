@@ -22,13 +22,13 @@ compose.desktop {
                 TargetFormat.Msi, TargetFormat.Exe
             )
             packageName = "FlibApp"
-            packageVersion = "1.0.0"
+            packageVersion = "1.0.1"
             description = "Book search & download client for Flibusta"
             vendor = "FlibApp"
 
             macOS {
                 bundleID = "com.flibusta.reader"
-                dmgPackageVersion = "1.0.0"
+                dmgPackageVersion = "1.0.1"
                 iconFile.set(project.file("src/main/resources/FlibApp.icns"))
             }
 
