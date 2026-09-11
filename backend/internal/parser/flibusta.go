@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"context"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -49,9 +50,13 @@ func NewFlibustaClient(baseURL string, client *http.Client) *FlibustaClient {
 }
 
 func (c *FlibustaClient) fetchFeed(path string) (*Feed, error) {
+	return c.fetchFeedContext(context.Background(), path)
+}
+
+func (c *FlibustaClient) fetchFeedContext(ctx context.Context, path string) (*Feed, error) {
 	fullURL := c.baseURL + path
 
-	req, err := http.NewRequest("GET", fullURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", fullURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
@@ -112,12 +117,16 @@ func (c *FlibustaClient) Search(term string) (*SearchDisambiguation, error) {
 }
 
 func (c *FlibustaClient) SearchBooks(term string, page string) (*PaginatedBooks, error) {
+	return c.SearchBooksContext(context.Background(), term, page)
+}
+
+func (c *FlibustaClient) SearchBooksContext(ctx context.Context, term string, page string) (*PaginatedBooks, error) {
 	path := "/opds/search?searchType=books&searchTerm=" + url.QueryEscape(term)
 	if page != "" {
 		path += "&pageNumber=" + page
 	}
 
-	feed, err := c.fetchFeed(path)
+	feed, err := c.fetchFeedContext(ctx, path)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +148,11 @@ func (c *FlibustaClient) SearchBooks(term string, page string) (*PaginatedBooks,
 }
 
 func (c *FlibustaClient) SearchAuthors(term string) ([]AuthorResult, error) {
-	feed, err := c.fetchFeed("/opds/search?searchType=authors&searchTerm=" + url.QueryEscape(term))
+	return c.SearchAuthorsContext(context.Background(), term)
+}
+
+func (c *FlibustaClient) SearchAuthorsContext(ctx context.Context, term string) ([]AuthorResult, error) {
+	feed, err := c.fetchFeedContext(ctx, "/opds/search?searchType=authors&searchTerm="+url.QueryEscape(term))
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +167,11 @@ func (c *FlibustaClient) SearchAuthors(term string) ([]AuthorResult, error) {
 }
 
 func (c *FlibustaClient) SearchSeries(term string) ([]SeriesResult, error) {
-	feed, err := c.fetchFeed("/opds/sequencesindex/" + url.PathEscape(term))
+	return c.SearchSeriesContext(context.Background(), term)
+}
+
+func (c *FlibustaClient) SearchSeriesContext(ctx context.Context, term string) ([]SeriesResult, error) {
+	feed, err := c.fetchFeedContext(ctx, "/opds/sequencesindex/"+url.PathEscape(term))
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +189,7 @@ func (c *FlibustaClient) SearchSeries(term string) ([]SeriesResult, error) {
 			if subLink == "" {
 				continue
 			}
-			subFeed, err := c.fetchFeed(subLink)
+			subFeed, err := c.fetchFeedContext(ctx, subLink)
 			if err != nil {
 				continue
 			}

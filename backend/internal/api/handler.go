@@ -1,24 +1,130 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/flibusta-reader/backend/internal/cache"
 	"github.com/flibusta-reader/backend/internal/parser"
 	"github.com/go-chi/chi/v5"
+	"golang.org/x/sync/singleflight"
 )
 
-type Handler struct {
-	client *parser.FlibustaClient
-	cache  *cache.Cache
+const (
+	defaultSearchTimeout    = 15 * time.Second
+	defaultSeriesTimeout    = 8 * time.Second
+	defaultNegativeCacheTTL = 10 * time.Minute
+)
+
+type HandlerOptions struct {
+	SearchTimeout    time.Duration
+	SeriesTimeout    time.Duration
+	NegativeCacheTTL time.Duration
 }
 
-func NewHandler(c *parser.FlibustaClient, cache *cache.Cache) *Handler {
-	return &Handler{client: c, cache: cache}
+type Handler struct {
+	client           *parser.FlibustaClient
+	cache            *cache.Cache
+	searchGroup      singleflight.Group
+	searchTimeout    time.Duration
+	seriesTimeout    time.Duration
+	negativeCacheTTL time.Duration
+}
+
+func NewHandler(c *parser.FlibustaClient, cache *cache.Cache, options ...HandlerOptions) *Handler {
+	opts := HandlerOptions{
+		SearchTimeout:    defaultSearchTimeout,
+		SeriesTimeout:    defaultSeriesTimeout,
+		NegativeCacheTTL: defaultNegativeCacheTTL,
+	}
+	if len(options) > 0 {
+		if options[0].SearchTimeout > 0 {
+			opts.SearchTimeout = options[0].SearchTimeout
+		}
+		if options[0].SeriesTimeout > 0 {
+			opts.SeriesTimeout = options[0].SeriesTimeout
+		}
+		if options[0].NegativeCacheTTL > 0 {
+			opts.NegativeCacheTTL = options[0].NegativeCacheTTL
+		}
+	}
+	return &Handler{
+		client:           c,
+		cache:            cache,
+		searchTimeout:    opts.SearchTimeout,
+		seriesTimeout:    opts.SeriesTimeout,
+		negativeCacheTTL: opts.NegativeCacheTTL,
+	}
+}
+
+type cacheLoadResult[T any] struct {
+	value     T
+	fromCache bool
+}
+
+func cachedLoad[T any](
+	w http.ResponseWriter,
+	h *Handler,
+	key string,
+	timeout time.Duration,
+	ttlFor func(T) time.Duration,
+	load func(context.Context) (T, error),
+) (T, error) {
+	started := time.Now()
+	if cached, ok := h.cache.Get(key); ok {
+		if result, ok := cached.(T); ok {
+			setCacheHeaders(w, "HIT", started)
+			return result, nil
+		}
+	}
+
+	value, err, shared := h.searchGroup.Do(key, func() (any, error) {
+		if cached, ok := h.cache.Get(key); ok {
+			if result, ok := cached.(T); ok {
+				return cacheLoadResult[T]{value: result, fromCache: true}, nil
+			}
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		result, err := load(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if ttl := ttlFor(result); ttl > 0 {
+			h.cache.SetWithTTL(key, result, ttl)
+		} else {
+			h.cache.Set(key, result)
+		}
+		return cacheLoadResult[T]{value: result}, nil
+	})
+
+	status := "MISS"
+	if shared {
+		status = "COALESCED"
+	}
+	if err != nil {
+		setCacheHeaders(w, status, started)
+		var zero T
+		return zero, err
+	}
+	result := value.(cacheLoadResult[T])
+	if result.fromCache {
+		status = "HIT"
+	}
+	setCacheHeaders(w, status, started)
+	return result.value, nil
+}
+
+func setCacheHeaders(w http.ResponseWriter, status string, started time.Time) {
+	w.Header().Set("X-Cache", status)
+	w.Header().Set("Server-Timing", fmt.Sprintf("backend;dur=%.1f", float64(time.Since(started).Microseconds())/1000))
 }
 
 func (h *Handler) Health(w http.ResponseWriter, _ *http.Request) {
@@ -57,24 +163,26 @@ func (h *Handler) SearchBooks(w http.ResponseWriter, r *http.Request) {
 	page := r.URL.Query().Get("page")
 
 	cacheKey := "search:books:" + strings.ToLower(q) + ":" + page
-	if v, ok := h.cache.Get(cacheKey); ok {
-		writeJSON(w, v)
-		return
-	}
-
-	result, err := h.client.SearchBooks(q, page)
+	result, err := cachedLoad(w, h, cacheKey, h.searchTimeout,
+		func(result *parser.PaginatedBooks) time.Duration {
+			if len(result.Books) == 0 && result.NextPage == "" {
+				return h.negativeCacheTTL
+			}
+			return 0
+		},
+		func(ctx context.Context) (*parser.PaginatedBooks, error) {
+			result, err := h.client.SearchBooksContext(ctx, q, page)
+			if err == nil && result.Books == nil {
+				result.Books = []parser.BookResult{}
+			}
+			return result, err
+		},
+	)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, "upstream error")
 		return
 	}
 
-	if result.Books == nil {
-		result.Books = []parser.BookResult{}
-	}
-
-	if len(result.Books) > 0 || result.NextPage != "" {
-		h.cache.Set(cacheKey, result)
-	}
 	writeJSON(w, result)
 }
 
@@ -85,12 +193,17 @@ func (h *Handler) SearchAuthors(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cacheKey := "search:authors:" + strings.ToLower(q)
-	if v, ok := h.cache.Get(cacheKey); ok {
-		writeJSON(w, v)
-		return
-	}
-
-	result, err := h.client.SearchAuthors(q)
+	result, err := cachedLoad(w, h, cacheKey, h.searchTimeout,
+		func(result []parser.AuthorResult) time.Duration {
+			if len(result) == 0 {
+				return h.negativeCacheTTL
+			}
+			return 0
+		},
+		func(ctx context.Context) ([]parser.AuthorResult, error) {
+			return h.client.SearchAuthorsContext(ctx, q)
+		},
+	)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, "upstream error")
 		return
@@ -100,9 +213,6 @@ func (h *Handler) SearchAuthors(w http.ResponseWriter, r *http.Request) {
 		result = []parser.AuthorResult{}
 	}
 
-	if len(result) > 0 {
-		h.cache.Set(cacheKey, result)
-	}
 	writeJSON(w, result)
 }
 
@@ -113,12 +223,17 @@ func (h *Handler) SearchSeries(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cacheKey := "search:series:" + strings.ToLower(q)
-	if v, ok := h.cache.Get(cacheKey); ok {
-		writeJSON(w, v)
-		return
-	}
-
-	result, err := h.client.SearchSeries(q)
+	result, err := cachedLoad(w, h, cacheKey, h.seriesTimeout,
+		func(result []parser.SeriesResult) time.Duration {
+			if len(result) == 0 {
+				return h.negativeCacheTTL
+			}
+			return 0
+		},
+		func(ctx context.Context) ([]parser.SeriesResult, error) {
+			return h.client.SearchSeriesContext(ctx, q)
+		},
+	)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, "upstream error")
 		return
@@ -128,9 +243,6 @@ func (h *Handler) SearchSeries(w http.ResponseWriter, r *http.Request) {
 		result = []parser.SeriesResult{}
 	}
 
-	if len(result) > 0 {
-		h.cache.Set(cacheKey, result)
-	}
 	writeJSON(w, result)
 }
 

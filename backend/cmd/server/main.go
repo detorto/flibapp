@@ -24,7 +24,11 @@ func main() {
 	httpClient := buildHTTPClient(cfg)
 	client := parser.NewFlibustaClient(cfg.FlibustaBaseURL, httpClient)
 	c := cache.New(cfg.CacheTTL)
-	h := api.NewHandler(client, c)
+	h := api.NewHandler(client, c, api.HandlerOptions{
+		SearchTimeout:    cfg.SearchTimeout,
+		SeriesTimeout:    cfg.SeriesTimeout,
+		NegativeCacheTTL: cfg.NegativeCacheTTL,
+	})
 
 	r := chi.NewRouter()
 

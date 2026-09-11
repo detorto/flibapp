@@ -30,6 +30,9 @@ Env vars:
 | `FLIBUSTA_URL` | `https://flibusta.is` | Upstream URL |
 | `TOR_PROXY` | *(empty)* | SOCKS5 proxy for Tor (e.g. `127.0.0.1:9050`) |
 | `CACHE_TTL_MINUTES` | `60` | Search result cache TTL |
+| `NEGATIVE_CACHE_TTL_MINUTES` | `10` | TTL for successful empty searches |
+| `SEARCH_TIMEOUT_SECONDS` | `15` | Upstream timeout for book and author searches |
+| `SERIES_SEARCH_TIMEOUT_SECONDS` | `8` | Upstream timeout for the slower series search |
 | `RATE_LIMIT` | `60` | Requests per window per IP |
 | `RATE_LIMIT_WINDOW_SECONDS` | `60` | Rate limit window |
 

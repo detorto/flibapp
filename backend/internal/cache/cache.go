@@ -39,8 +39,15 @@ func (c *Cache) Get(key string) (any, bool) {
 }
 
 func (c *Cache) Set(key string, value any) {
+	c.SetWithTTL(key, value, c.ttl)
+}
+
+func (c *Cache) SetWithTTL(key string, value any, ttl time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if ttl <= 0 {
+		ttl = c.ttl
+	}
 
 	if _, exists := c.items[key]; !exists && len(c.items) >= maxItems {
 		var oldestKey string
@@ -56,7 +63,7 @@ func (c *Cache) Set(key string, value any) {
 
 	c.items[key] = entry{
 		value:     value,
-		expiresAt: time.Now().Add(c.ttl),
+		expiresAt: time.Now().Add(ttl),
 	}
 }
 
